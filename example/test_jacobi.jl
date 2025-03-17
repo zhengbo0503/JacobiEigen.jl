@@ -1,9 +1,4 @@
-include("Jacobi.jl")
-include("JacobiEigenvalueAlgorithm.jl")
-
-# the dot is used below to tell Julia to use the version of JacobiEigenvalueAlgorithm.jl that is 
-# in the current directory, rather than in the package manager
-using .JacobiEigenvalueAlgorithm
+using JacobiEigen, LinearAlgebra
 
 n = 500;
 
@@ -49,7 +44,7 @@ tmp1 = zeros(2,n)
 tmp2 = zeros(2,n)
 A3 = copy(A)
 # only allocates 32 bytes of memory:
-@time JacobiEigenvalueAlgorithm._jacobi_eigen!(A3, tol, V, J, tmp1, tmp2);
+@time JacobiEigen._jacobi_eigen!(A3, tol, V, J, tmp1, tmp2);
 
 # check the internal function is type stable:
-@code_warntype JacobiEigenvalueAlgorithm._jacobi_eigen!(A3, tol, V, J, tmp1, tmp2);
+@code_warntype JacobiEigen._jacobi_eigen!(A3, tol, V, J, tmp1, tmp2);
