@@ -99,17 +99,22 @@ end
 
 # Fix matrix dimension and varying the condition number 
 N = round.(10 .^ range(1, 14, length=20));
-n = 100; 
+n = 200; 
 
-fwderrm = zeros(Float64, length(N), 1); 
-bwderrm = zeros(Float64, length(N), 1); 
-orterrm = zeros(Float64, length(N), 1); 
+fwderrm2 = zeros(Float64, length(N), 1); 
+bwderrm2 = zeros(Float64, length(N), 1); 
+orterrm2 = zeros(Float64, length(N), 1); 
+
+fwderrm3 = zeros(Float64, length(N), 1); 
+bwderrm3 = zeros(Float64, length(N), 1); 
+orterrm3 = zeros(Float64, length(N), 1); 
 
 fwderrj = zeros(Float64, length(N), 1); 
 bwderrj = zeros(Float64, length(N), 1); 
 orterrj = zeros(Float64, length(N), 1); 
 
-tm = zeros(Float64, length(N), 1); 
+tm2 = zeros(Float64, length(N), 1); 
+tm3 = zeros(Float64, length(N), 1); 
 tj = zeros(Float64, length(N), 1); 
 
 for i ∈ eachindex(N)
@@ -118,17 +123,24 @@ for i ∈ eachindex(N)
     
     A1 = copy(A); 
     time1 = time(); 
-    jacobi_eigen(A1); 
-    tm[i] = time() - time1; 
+    jacobi_eigen!(A1); 
+    tj[i] = time() - time1; 
 
     A2 = copy(A); 
     time1 = time(); 
-    mp_jacobi_eigen(A2); 
-    tj[i] = time() - time1; 
+    mp2_jacobi_eigen!(A2); 
+    tm2[i] = time() - time1; 
 
+    A3 = copy(A); 
+    time1 = time();
+    mp3_jacobi_eigen!(A3); 
+    tm3[i] = time() - time1; 
 end
 
-plt = plot(N, tj./tm, xscale=:log10);
-xlabel!("kappa(A)")
-ylabel!("(Time of MP3)/(Time of Jacobi)")
-display(plt);
+plt = plot(N, tm3, xscale=:log10, label="MP3")
+plot!(N, tj, xscale=:log10, label="Jacobi")
+plot!(N, tm2, xscale=:log10, label="MP2")
+
+xlabel!("κ(A)")
+ylabel!("Time")
+display(plt)

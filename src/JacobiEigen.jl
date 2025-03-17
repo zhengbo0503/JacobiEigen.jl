@@ -1,6 +1,6 @@
 module JacobiEigen
 
-using LinearAlgebra
+using LinearAlgebra, Quadmath
 
 """
     jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
@@ -116,44 +116,83 @@ end
 
 
 """
-    function mp_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
+    mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
 
     Compute the spectral decomposition of a symmetric matrix A ∈ ℝⁿˣⁿ using the cyclic Jacobi algorithm with mixed-precision pre-processing.
     
 """
+mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}) = mp2_jacobi_eigen!(copy(A))
 
-function mp_jacobi_eigen(A::AbstractMatrix{T}) where T <: AbstractFloat 
-    # Setup the high precision 
-
-    println("Version : 14:00 2025-03-12");
-
-    setprecision(128); 
-    A32 = Float32.(A); 
-    A128 = BigFloat.(A);
+"""
+    mp2_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat})
+    
+    Same as mp2_jacobi_eigen, but saves space by overwriting the input A, instead of creating a copy.
+"""
+function mp2_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat 
 
     # Compute the low-precision eigenvectors 
-    V32 = eigen(A32).vectors; 
+    V32 = eigen!(Symmetric(Float32.(A))).vectors
 
-    # Orthogonalize the eigenvectors 
-    Q_temp = Float64.(V32)
-    Q64 = qr(Q_temp).Q;
+    # Orthogonalize the eigenvectors
+    Q = Float64.(V32)
+    Q64 = qr!(Q).Q
 
-    # Apply the preconditioner at high precision
-    Q128 = BigFloat.(Q64);
-    A128 = Q128' * A128 * Q128;
+    # Apply the preconditioner
+    mul!(A, Q64', A * Q64)
 
     # Post-process the preconditioned matrix to make it symmetric
-    At = Float64.(A128);
-    At = (At + At')/2; 
+    hermitianpart!(A)
 
     # Compute the eigensystem of the preconditioned matrix 
-    Λ, Vtemp, Params = jacobi_eigen!(At); 
-    V = Q64 * Vtemp; 
+    Λ, Vtemp, Params = jacobi_eigen!(A)
+    V = A
+    mul!(V, Q64, Vtemp)
 
     return Λ, V, Params
 end
 
 
-export jacobi_eigen, jacobi_eigen!, off, mp_jacobi_eigen
+"""
+    mp3_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
+
+    Compute the spectral decomposition of a symmetric matrix A ∈ ℝⁿˣⁿ using the cyclic Jacobi algorithm with mixed-precision pre-processing.
+    
+"""
+mp3_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}) = mp3_jacobi_eigen!(copy(A))
+
+"""
+    mp3_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat})
+    
+    Same as mp3_jacobi_eigen, but saves space by overwriting the input A, instead of creating a copy.
+"""
+function mp3_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat 
+    # Setup the high precision 
+    A32 = Symmetric(Float32.(A)) # symmetric for eigen
+    A128 = Float128.(A)
+
+    # Compute the low-precision eigenvectors 
+    V32 = eigen!(A32).vectors
+
+    # Orthogonalize the eigenvectors
+    A .= Float64.(V32)
+    Q64 = qr!(A).Q
+
+    # Apply the preconditioner at high precision
+    Q128 = Float128.(Q64)
+    mul!(A, Q128', A128 * Q128)
+
+    # Post-process the preconditioned matrix to make it symmetric
+    hermitianpart!(A)
+
+    # Compute the eigensystem of the preconditioned matrix 
+    Λ, Vtemp, Params = jacobi_eigen!(A)
+    V = A
+    mul!(V, Q64, Vtemp)
+
+    return Λ, V, Params
+end
+
+
+export jacobi_eigen, jacobi_eigen!, off, mp2_jacobi_eigen, mp2_jacobi_eigen!, mp3_jacobi_eigen, mp3_jacobi_eigen!
 
 end # module
