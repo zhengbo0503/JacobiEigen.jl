@@ -114,6 +114,46 @@ function off(A::AbstractMatrix{T}) where T <: Real
     return sqrt(ret)
 end
 
-export jacobi_eigen, jacobi_eigen!, off
+
+"""
+    function mp_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
+
+    Compute the spectral decomposition of a symmetric matrix A ∈ ℝⁿˣⁿ using the cyclic Jacobi algorithm with mixed-precision pre-processing.
+    
+"""
+
+function mp_jacobi_eigen(A::AbstractMatrix{T}) where T <: AbstractFloat 
+    # Setup the high precision 
+
+    println("Version : 14:00 2025-03-12");
+
+    setprecision(128); 
+    A32 = Float32.(A); 
+    A128 = BigFloat.(A);
+
+    # Compute the low-precision eigenvectors 
+    V32 = eigen(A32).vectors; 
+
+    # Orthogonalize the eigenvectors 
+    Q_temp = Float64.(V32)
+    Q64 = qr(Q_temp).Q;
+
+    # Apply the preconditioner at high precision
+    Q128 = BigFloat.(Q64);
+    A128 = Q128' * A128 * Q128;
+
+    # Post-process the preconditioned matrix to make it symmetric
+    At = Float64.(A128);
+    At = (At + At')/2; 
+
+    # Compute the eigensystem of the preconditioned matrix 
+    Λ, Vtemp, Params = jacobi_eigen!(At); 
+    V = Q64 * Vtemp; 
+
+    return Λ, V, Params
+end
+
+
+export jacobi_eigen, jacobi_eigen!, off, mp_jacobi_eigen
 
 end # module

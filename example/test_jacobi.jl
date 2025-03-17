@@ -1,6 +1,6 @@
 using JacobiEigen, LinearAlgebra
 
-n = 500;
+n = 200;
 
 A = randn(n,n);
 A = A' * A;
@@ -9,11 +9,14 @@ A1 = copy(A);
 Λᵣ, Vᵣ = eigen!(A1);
 
 A2 = copy(A);
-Λⱼ, Vⱼ, Para = jacobi_eigen!(A2)
+Λⱼ, Vⱼ, Para = jacobi_eigen!(A2);
 
-println("Forward Error = $(maximum(abs.(sort(Λⱼ) - sort(Λᵣ))./abs.(sort(Λᵣ))))");
-println("Backward Error = $(norm(Vⱼ*diagm(Λⱼ)*Vⱼ'-A)/norm(A))");
-println("Orthogonality Error = $(norm(Vⱼ'*Vⱼ - I))");
+A3 = copy(A);
+Λₕ, Vₕ, Paras = mp_jacobi_eigen(A3); 
+
+println("Forward Error = $(maximum(abs.(sort(Λₕ) - sort(Λᵣ))./abs.(sort(Λᵣ))))");
+println("Backward Error = $(norm(Vₕ*diagm(Λₕ)*Vₕ'-A)/norm(A))");
+println("Orthogonality Error = $(norm(Vₕ'*Vₕ - I))");
 
 # so is the new version:
 @code_warntype jacobi_eigen!(A2);
@@ -25,6 +28,9 @@ A1 = copy(A);
 
 A2 = copy(A);
 @time jacobi_eigen!(A3);
+
+A3 = copy(A);
+@time mp_jacobi_eigen(A3);
 
 
 # check the memory allocation of the internal function:
