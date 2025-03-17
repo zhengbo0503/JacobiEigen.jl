@@ -70,14 +70,14 @@ function _jacobi_eigen!(A::AbstractMatrix{T}, tol::T, V::Matrix{T}, J::Matrix{T}
                     J[2,1] = sn; J[2,2] = cs
 
                     # Apply the Jacobi rotation
-                    # A[:,[p,q]] = A[:,[p,q]]*J'
+                    # A[[p,q],:] = J*A[[p,q],:]
                     @views tmp1[1,:] = A[p,:]
                     @views tmp1[2,:] = A[q,:]
                     mul!(tmp2, J, tmp1) # tmp2 = J*tmp1
                     @views A[p,:] = tmp2[1,:]
                     @views A[q,:] = tmp2[2,:]
 
-                    # A[[p,q],:] = J * A[[p,q],:]
+                    # A[:,[p,q]] = A[:,[p,q]]*J'
                     @views tmp1[1,:] = A[:,p]
                     @views tmp1[2,:] = A[:,q]
                     mul!(tmp2, J, tmp1) # tmp2 = J*tmp1
@@ -87,7 +87,7 @@ function _jacobi_eigen!(A::AbstractMatrix{T}, tol::T, V::Matrix{T}, J::Matrix{T}
                     A[p,q] = 0
                     A[q,p] = 0
                     
-                    # V[p,q],:] = J * V[[p,q],:]
+                    # V[:,[p,q]] = J * V[:,[p,q]]
                     @views tmp1[1,:] = V[:,p]
                     @views tmp1[2,:] = V[:,q]
                     mul!(tmp2, J, tmp1) # tmp2 = J*tmp1
