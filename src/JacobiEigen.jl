@@ -27,21 +27,34 @@ jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}) = jacobi_eigen!(copy(A))
     Same as jacobi_eigen, but saves space by overwriting the input A, instead of creating a copy.
 """
 function jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat
+    
+    # set up eigenvector matrix
+    V = Matrix{T}(undef, size(A))
+
+    # use internal function for jacobi eigenvalue algorithm
+    Λ, V, Params = _jacobi_eigen!(A, V)
+
+    # sort the eigenvalues and eigenvectors
+    LinearAlgebra.sorteig!(Λ, V, identity)
+    
+    return Λ, V, Params
+end
+
+
+function _jacobi_eigen!(A::AbstractMatrix{T}, V::AbstractMatrix{T}) where T <: AbstractFloat
     # Initialize parameters 
     n = size( A,1 )
     tol = sqrt(T(n)) * eps(T)/2
-    V = Matrix{T}(I,n,n)
-    J = zeros(T,2,2)
-    tmp1 = zeros(T,2,n)
-    tmp2 = zeros(T,2,n)
+    fill!(V, zero(T))
+    for k ∈ axes(V,1)
+        V[k,k] = one(T)
+    end
+    J = Matrix{T}(undef,2,2)
+    tmp1 = Matrix{T}(undef,2,n)
+    tmp2 = Matrix{T}(undef,2,n)
     
-    Params = _jacobi_eigen!(A, tol, V, J, tmp1, tmp2)
-
-    # Post-processing 
-    Λ = diag(A)
-    sorted_indices = sortperm(Λ, rev = true)
-    Λ = Λ[sorted_indices]
-    V = V[:, sorted_indices]
+    # use internal function for jacobi eigenvalue algorithm
+    Λ, V, Params = _jacobi_eigen!(A, tol, V, J, tmp1, tmp2)
 
     return Λ, V, Params
 end
@@ -97,7 +110,7 @@ function _jacobi_eigen!(A::AbstractMatrix{T}, tol::T, V::Matrix{T}, J::Matrix{T}
             end
         end
     end
-    return no_rotation, no_sweep
+    return diag(A), V, (no_rotation, no_sweep)
 end
 
 """
@@ -134,19 +147,23 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat
     V32 = eigen!(Symmetric(Float32.(A))).vectors
 
     # Orthogonalize the eigenvectors
-    Q = Float64.(V32)
-    Q64 = qr!(Q).Q
+    Vtmp = Float64.(V32)
+    Q64 = Matrix(qr!(Vtmp).Q)
 
     # Apply the preconditioner
-    mul!(A, Q64', A * Q64)
-
+    mul!(Vtmp, A, Q64)
+    mul!(A, Q64', Vtmp)
+    
     # Post-process the preconditioned matrix to make it symmetric
     hermitianpart!(A)
 
     # Compute the eigensystem of the preconditioned matrix 
-    Λ, Vtemp, Params = jacobi_eigen!(A)
+    Λ, Vtmp, Params = _jacobi_eigen!(A, Vtmp)
+
+    # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
-    mul!(V, Q64, Vtemp)
+    mul!(V, Q64, Vtmp)
+    LinearAlgebra.sorteig!(Λ, V, identity)
 
     return Λ, V, Params
 end
@@ -174,8 +191,8 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat
     V32 = eigen!(A32).vectors
 
     # Orthogonalize the eigenvectors
-    A .= Float64.(V32)
-    Q64 = qr!(A).Q
+    Vtmp = Float64.(V32)
+    Q64 = Matrix(qr!(Vtmp).Q)
 
     # Apply the preconditioner at high precision
     Q128 = Float128.(Q64)
@@ -185,9 +202,12 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat
     hermitianpart!(A)
 
     # Compute the eigensystem of the preconditioned matrix 
-    Λ, Vtemp, Params = jacobi_eigen!(A)
+    Λ, Vtmp, Params = _jacobi_eigen!(A, Vtmp)
+    
+    # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
-    mul!(V, Q64, Vtemp)
+    mul!(V, Q64, Vtmp)
+    LinearAlgebra.sorteig!(Λ, V, identity)
 
     return Λ, V, Params
 end
