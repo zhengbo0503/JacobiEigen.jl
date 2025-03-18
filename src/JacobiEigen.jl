@@ -1,6 +1,6 @@
 module JacobiEigen
 
-using LinearAlgebra, Quadmath
+using LinearAlgebra
 
 """
     jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
@@ -129,40 +129,41 @@ end
 
 
 """
-    mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
+    mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat})
 
     Compute the spectral decomposition of a symmetric matrix A ∈ ℝⁿˣⁿ using the cyclic Jacobi algorithm with mixed-precision pre-processing.
+    TODO: Add explanation of Tl.
     
 """
-mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}) = mp2_jacobi_eigen!(copy(A))
+mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat}) = mp2_jacobi_eigen!(Tu.(A), Tl)
 
 """
-    mp2_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat})
+    mp2_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat})
     
     Same as mp2_jacobi_eigen, but saves space by overwriting the input A, instead of creating a copy.
 """
-function mp2_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat 
+function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) where T <: AbstractFloat 
 
     # Compute the low-precision eigenvectors 
-    V32 = eigen!(Symmetric(Float32.(A))).vectors
+    Vl = eigen!(Symmetric(Tl.(A))).vectors
 
     # Orthogonalize the eigenvectors
-    Vtmp = Float64.(V32)
-    Q64 = Matrix(qr!(Vtmp).Q)
+    Vu = T.(Vl)
+    Qu = Matrix(qr!(Vu).Q)
 
     # Apply the preconditioner
-    mul!(Vtmp, A, Q64)
-    mul!(A, Q64', Vtmp)
+    mul!(Vu, A, Qu)
+    mul!(A, Qu', Vu)
     
     # Post-process the preconditioned matrix to make it symmetric
     hermitianpart!(A)
 
     # Compute the eigensystem of the preconditioned matrix 
-    Λ, Vtmp, Params = _jacobi_eigen!(A, Vtmp)
+    Λ, Vu, Params = _jacobi_eigen!(A, Vu)
 
     # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
-    mul!(V, Q64, Vtmp)
+    mul!(V, Qu, Vu)
     LinearAlgebra.sorteig!(Λ, V, identity)
 
     return Λ, V, Params
@@ -170,43 +171,44 @@ end
 
 
 """
-    mp3_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
+    mp3_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat}, Th::Type{<:AbstractFloat})
 
     Compute the spectral decomposition of a symmetric matrix A ∈ ℝⁿˣⁿ using the cyclic Jacobi algorithm with mixed-precision pre-processing.
+    TODO: Add explanation of Tl, and Th.
     
 """
-mp3_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}) = mp3_jacobi_eigen!(copy(A))
+mp3_jacobi_eigen(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::Type{<:AbstractFloat}) where T<:AbstractFloat = mp3_jacobi_eigen!(copy(A), Tl, Th)
 
 """
-    mp3_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat})
+    mp3_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat}, Th::Type{<:AbstractFloat})
     
     Same as mp3_jacobi_eigen, but saves space by overwriting the input A, instead of creating a copy.
 """
-function mp3_jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat 
+function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::Type{<:AbstractFloat}) where T <: AbstractFloat 
     # Setup the high precision 
-    A32 = Symmetric(Float32.(A)) # symmetric for eigen
-    A128 = Float128.(A)
+    Al = Symmetric(Tl.(A)) # symmetric for eigen
 
     # Compute the low-precision eigenvectors 
-    V32 = eigen!(A32).vectors
+    Vl = eigen!(Al).vectors
 
     # Orthogonalize the eigenvectors
-    Vtmp = Float64.(V32)
-    Q64 = Matrix(qr!(Vtmp).Q)
+    Vu = T.(Vl)
+    Qu = Matrix(qr!(Vu).Q)
 
     # Apply the preconditioner at high precision
-    Q128 = Float128.(Q64)
-    mul!(A, Q128', A128 * Q128)
+    Ah = Th.(A)
+    Qh = Th.(Qu)
+    mul!(A, Qh', Ah * Qh)
 
     # Post-process the preconditioned matrix to make it symmetric
     hermitianpart!(A)
 
     # Compute the eigensystem of the preconditioned matrix 
-    Λ, Vtmp, Params = _jacobi_eigen!(A, Vtmp)
+    Λ, Vu, Params = _jacobi_eigen!(A, Vu)
     
     # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
-    mul!(V, Q64, Vtmp)
+    mul!(V, Qu, Vu)
     LinearAlgebra.sorteig!(Λ, V, identity)
 
     return Λ, V, Params

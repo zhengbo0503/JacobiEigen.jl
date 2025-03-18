@@ -1,4 +1,4 @@
-using LinearAlgebra, JacobiEigen, Plots
+using LinearAlgebra, JacobiEigen, Plots, GenericLinearAlgebra, Quadmath
 
 ########################################################################
 # Adapt randsvd in MatrixDepot.jl such that it can generate SPD matrices with pre-defined singular values. 
@@ -128,12 +128,12 @@ for i ∈ eachindex(N)
 
     A2 = copy(A); 
     time1 = time(); 
-    mp2_jacobi_eigen!(A2); 
+    mp2_jacobi_eigen!(A2, Float32); 
     tm2[i] = time() - time1; 
 
     A3 = copy(A); 
     time1 = time();
-    mp3_jacobi_eigen!(A3); 
+    mp3_jacobi_eigen!(A3, Float32, Float128); 
     tm3[i] = time() - time1; 
 end
 
