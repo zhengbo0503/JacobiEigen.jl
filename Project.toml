@@ -4,10 +4,14 @@ authors = ["Zhengbo Zhou", "Marcus Webb"]
 version = "1.0.0-DEV"
 
 [deps]
+GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Quadmath = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
 
 [compat]
+GenericLinearAlgebra = "0.3.15"
 LinearAlgebra = "1.11.0"
+Quadmath = "0.5.11"
 julia = "1.6.7"
 
 [extras]

@@ -35,7 +35,7 @@ function jacobi_eigen!(A::AbstractMatrix{T}) where T <: AbstractFloat
     Λ, V, Params = _jacobi_eigen!(A, V)
 
     # sort the eigenvalues and eigenvectors
-    LinearAlgebra.sorteig!(Λ, V, identity)
+    LinearAlgebra.sorteig!(Λ, V)
     
     return Λ, V, Params
 end
@@ -135,7 +135,7 @@ end
     TODO: Add explanation of Tl.
     
 """
-mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat}) = mp2_jacobi_eigen!(Tu.(A), Tl)
+mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat}) = mp2_jacobi_eigen!(copy(A), Tl)
 
 """
     mp2_jacobi_eigen!(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat})
@@ -164,7 +164,7 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
     # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
     mul!(V, Qu, Vu)
-    LinearAlgebra.sorteig!(Λ, V, identity)
+    LinearAlgebra.sorteig!(Λ, V)
 
     return Λ, V, Params
 end
@@ -209,12 +209,24 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
     mul!(V, Qu, Vu)
-    LinearAlgebra.sorteig!(Λ, V, identity)
+    LinearAlgebra.sorteig!(Λ, V)
 
     return Λ, V, Params
 end
 
 
 export jacobi_eigen, jacobi_eigen!, off, mp2_jacobi_eigen, mp2_jacobi_eigen!, mp3_jacobi_eigen, mp3_jacobi_eigen!
+
+
+# precomilation:
+using GenericLinearAlgebra, Quadmath
+A = randn(Float64, 4, 4)
+jacobi_eigen(A)
+mp2_jacobi_eigen(A, Float32)
+mp3_jacobi_eigen(A, Float32, Float128)
+A = randn(Float32, 4, 4)
+jacobi_eigen(A)
+mp2_jacobi_eigen(A, Float16)
+mp3_jacobi_eigen(A, Float16, Float64)
 
 end # module
