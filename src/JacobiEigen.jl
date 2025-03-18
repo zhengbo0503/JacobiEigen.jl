@@ -218,7 +218,7 @@ end
 export jacobi_eigen, jacobi_eigen!, off, mp2_jacobi_eigen, mp2_jacobi_eigen!, mp3_jacobi_eigen, mp3_jacobi_eigen!
 
 
-# precomilation:
+# precompilation:
 using GenericLinearAlgebra, Quadmath
 A = randn(Float64, 4, 4)
 jacobi_eigen(A)
