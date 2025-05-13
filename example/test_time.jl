@@ -1,4 +1,6 @@
 using LinearAlgebra, JacobiEigen, Plots, GenericLinearAlgebra, Quadmath
+gr()
+using CSV, DataFrames
 
 ########################################################################
 # Adapt randsvd in MatrixDepot.jl such that it can generate SPD matrices with pre-defined singular values. 
@@ -98,8 +100,8 @@ function ComputeError( Λᵣ, Λⱼ, Vⱼ, A )
 end
 
 # Fix matrix dimension and varying the condition number 
-N = round.(10 .^ range(1, 14, length=20));
-n = 200; 
+# N = round.(10 .^ range(1, 14, length=20));
+N = Int64.(round.(10 .^ range(1,3,length=20)));
 
 fwderrm2 = zeros(Float64, length(N), 1); 
 bwderrm2 = zeros(Float64, length(N), 1); 
@@ -116,9 +118,12 @@ orterrj = zeros(Float64, length(N), 1);
 tm2 = zeros(Float64, length(N), 1); 
 tm3 = zeros(Float64, length(N), 1); 
 tj = zeros(Float64, length(N), 1); 
+tm2Decompose = zeros(Float64, length(N), 3); 
+tm3Decompose = zeros(Float64, length(N), 3); 
 
 for i ∈ eachindex(N)
-    kappa = N[i];
+    n = N[i];
+    kappa = 1e8; # 1e8
     A = randsvd(Float64, n, n, -1*kappa, 3); 
     
     A1 = copy(A); 
@@ -128,15 +133,28 @@ for i ∈ eachindex(N)
 
     A2 = copy(A); 
     time1 = time(); 
-    mp2_jacobi_eigen!(A2, Float32); 
+    _,_,_,recordTime2 = mp2_jacobi_eigen!(A2, Float32); 
     tm2[i] = time() - time1; 
+    tm2Decompose[i,:] = recordTime2
 
     A3 = copy(A); 
     time1 = time();
-    mp3_jacobi_eigen!(A3, Float32, Float128); 
+    _,_,_,recordTime3 = mp3_jacobi_eigen!(A3, Float32, Float128); 
     tm3[i] = time() - time1; 
+    tm3Decompose[i,:] = recordTime3
+
+    println("Finished $i of $(length(N))")
+
 end
 
+###########################################################################################
+# Store the data into CSV
+outputData = [tj tm2 tm3 tm2Decompose tm3Decompose]
+df = DataFrame(outputData, [:tj, :tm2, :tm3, :tm2Prec, :tm2ApplyHigh, :tm2Jacobi, :tm3Prec, :tm3ApplyHigh, :tm3Jacobi])
+CSV.write("./example/output.csv", df)
+
+
+###########################################################################################
 plt = plot(N, tm3, xscale=:log10, label="MP3")
 plot!(N, tj, xscale=:log10, label="Jacobi")
 plot!(N, tm2, xscale=:log10, label="MP2")
@@ -144,3 +162,6 @@ plot!(N, tm2, xscale=:log10, label="MP2")
 xlabel!("κ(A)")
 ylabel!("Time")
 display(plt)
+gui() 
+savefig(plt, "timing_plot.pdf")
+
