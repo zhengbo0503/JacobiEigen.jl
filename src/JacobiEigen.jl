@@ -144,6 +144,7 @@ mp2_jacobi_eigen(A::AbstractMatrix{<:AbstractFloat}, Tl::Type{<:AbstractFloat}) 
 """
 function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) where T <: AbstractFloat 
 
+    # Timing for constructing the preconditioner 
     tmp = time()
 
     # Compute the low-precision eigenvectors 
@@ -156,6 +157,7 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
     # Store the time for computing the preconditioner
     timePreconditioner = time()-tmp
 
+    # Timing for applying the preconditioner
     tmp = time()
 
     # Apply the preconditioner
@@ -165,23 +167,30 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
     # Post-process the preconditioned matrix to make it symmetric
     hermitianpart!(A)
 
-    # Store the time for computing the preconditioned matrix
-    timeApplyHighPrec = time()-tmp 
+    # Store the time for applying the preconditioner
+    timeApply = time()-tmp 
 
-    tmp = time() 
+    # Timing for applying the Jacobi algorithm
+    tmp = time()
 
     # Compute the eigensystem of the preconditioned matrix 
     Λ, Vu, Params = _jacobi_eigen!(A, Vu)
 
-    # Store the time for performing the Jacobi algorithm
+    # Store the time for applying the Jacobi algorithm
     timeJacobi = time() - tmp
+
+    # Timing for everything else 
+    tmp = time()
 
     # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
     mul!(V, Qu, Vu)
     LinearAlgebra.sorteig!(Λ, V)
 
-    return Λ, V, Params, [timePreconditioner timeApplyHighPrec timeJacobi]
+    # Store the time for everything else
+    timeElse = time() - tmp
+
+    return Λ, V, Params, [timePreconditioner timeApply timeJacobi timeElse]
 end
 
 
@@ -203,6 +212,7 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     # Setup the high precision 
     Al = Symmetric(Tl.(A)) # symmetric for eigen
 
+    # Timing for constructing the preconditioner 
     tmp = time()
 
     # Compute the low-precision eigenvectors 
@@ -212,10 +222,10 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     Vu = T.(Vl)
     Qu = Matrix(qr!(Vu).Q)
 
-
     # Store the time for computing the preconditioner
     timePreconditioner = time()-tmp
 
+    # Timing for applying the preconditioner
     tmp = time()
 
     # Apply the preconditioner at high precision
@@ -226,22 +236,30 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     # Post-process the preconditioned matrix to make it symmetric
     hermitianpart!(A)
 
-    # Store the time for computing the preconditioned matrix
-    timeApplyHighPrec = time()-tmp 
+    # Store the time for applying the preconditioner
+    timeApply = time()-tmp 
 
+    # Timing for applying the Jacobi algorithm
     tmp = time()
+
     # Compute the eigensystem of the preconditioned matrix 
     Λ, Vu, Params = _jacobi_eigen!(A, Vu)
 
-    # Store the time for performing the Jacobi algorithm
+    # Store the time for applying the Jacobi algorithm
     timeJacobi = time() - tmp
+
+    # Timing for everything else 
+    tmp = time()
     
     # Compute the final eigenvector matrix and sort by eigenvalues
     V = A
     mul!(V, Qu, Vu)
     LinearAlgebra.sorteig!(Λ, V)
 
-    return Λ, V, Params, [timePreconditioner timeApplyHighPrec timeJacobi] 
+    # Store the time for everything else
+    timeElse = time() - tmp
+
+    return Λ, V, Params, [timePreconditioner timeApply timeJacobi timeElse] 
 end
 
 
