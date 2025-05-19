@@ -1,10 +1,9 @@
 using LinearAlgebra, JacobiEigen, Plots, GenericLinearAlgebra, Quadmath
 gr()
-using CSV, DataFrames
+using CSV, DataFrames, Random
 
 ########################################################################
 # Adapt randsvd in MatrixDepot.jl such that it can generate SPD matrices with pre-defined singular values. 
-
 function qmult!(A::Matrix{T}) where T
     n, m = size(A)
 
@@ -84,7 +83,6 @@ function randsvd(::Type{T}, m::Integer, n::Integer, kappa, mode::Integer) where 
 end
 
 ########################################################################    
-
 # Function for computing forward, backward, and orthogonal errors
 function ComputeError( Λᵣ, Λⱼ, Vⱼ, A )
     Λᵣ = sort(Λᵣ); 
@@ -96,13 +94,15 @@ function ComputeError( Λᵣ, Λⱼ, Vⱼ, A )
     orterr = norm( Vⱼ'*Vⱼ - I );
 
     return fwderr, bwderr, orterr
-
 end
 
-# Fix matrix dimension and varying the condition number 
-# N = round.(10 .^ range(1, 14, length=20));
-N = Int64.(round.(10 .^ range(1,3,length=20)));
+###########################################################################################
+# Fix matrix condition number and varying the matrix order 
+# N = Int64.(round.(10 .^ range(2,3,length=10)));
+N = Int64.(round.(range(100,1000,length=20)));
+kappa = 1e8;
 
+# Set up the intermediate variables
 fwderrm2 = zeros(Float64, length(N), 1); 
 bwderrm2 = zeros(Float64, length(N), 1); 
 orterrm2 = zeros(Float64, length(N), 1); 
@@ -118,12 +118,14 @@ orterrj = zeros(Float64, length(N), 1);
 tm2 = zeros(Float64, length(N), 1); 
 tm3 = zeros(Float64, length(N), 1); 
 tj = zeros(Float64, length(N), 1); 
-tm2Decompose = zeros(Float64, length(N), 3); 
-tm3Decompose = zeros(Float64, length(N), 3); 
+tm2Decompose = zeros(Float64, length(N), 4); 
+tm3Decompose = zeros(Float64, length(N), 4); 
 
-for i ∈ eachindex(N)
+# Reset the random seed 
+Random.seed!(1);
+
+for i ∈ eachindex(N) 
     n = N[i];
-    kappa = 1e8; # 1e8
     A = randsvd(Float64, n, n, -1*kappa, 3); 
     
     A1 = copy(A); 
@@ -143,25 +145,68 @@ for i ∈ eachindex(N)
     tm3[i] = time() - time1; 
     tm3Decompose[i,:] = recordTime3
 
-    println("Finished $i of $(length(N))")
-
+    println("Finished $i of $(length(N)) for N = $n")
 end
 
-###########################################################################################
 # Store the data into CSV
-outputData = [tj tm2 tm3 tm2Decompose tm3Decompose]
-df = DataFrame(outputData, [:tj, :tm2, :tm3, :tm2Prec, :tm2ApplyHigh, :tm2Jacobi, :tm3Prec, :tm3ApplyHigh, :tm3Jacobi])
-CSV.write("./example/output.csv", df)
+outputData = [N tj tm2 tm3 tm2Decompose tm3Decompose]
+df = DataFrame(outputData, [:N, :tj, :tm2, :tm3, :tm2Prec, :tm2Apply, :tm2Jacobi, :tm2Else, :tm3Prec, :tm3Apply, :tm3Jacobi, :tm3Else])
+CSV.write("./example/timing_order.csv", df)
 
+return 
 
-###########################################################################################
-plt = plot(N, tm3, xscale=:log10, label="MP3")
-plot!(N, tj, xscale=:log10, label="Jacobi")
-plot!(N, tm2, xscale=:log10, label="MP2")
+##########################################################################
+# Fix matrix order and varying the condition number
+kappa = Int64.(round.(10 .^ range(3,14,length=20)));
+n = Int64.(500);
 
-xlabel!("κ(A)")
-ylabel!("Time")
-display(plt)
-gui() 
-savefig(plt, "timing_plot.pdf")
+# Set up the intermediate variables
+fwderrm2 = zeros(Float64, length(kappa), 1); 
+bwderrm2 = zeros(Float64, length(kappa), 1); 
+orterrm2 = zeros(Float64, length(kappa), 1); 
 
+fwderrm3 = zeros(Float64, length(kappa), 1); 
+bwderrm3 = zeros(Float64, length(kappa), 1); 
+orterrm3 = zeros(Float64, length(kappa), 1); 
+
+fwderrj = zeros(Float64, length(kappa), 1); 
+bwderrj = zeros(Float64, length(kappa), 1); 
+orterrj = zeros(Float64, length(kappa), 1); 
+
+tm2 = zeros(Float64, length(kappa), 1); 
+tm3 = zeros(Float64, length(kappa), 1); 
+tj = zeros(Float64, length(kappa), 1); 
+tm2Decompose = zeros(Float64, length(kappa), 4); 
+tm3Decompose = zeros(Float64, length(kappa), 4); 
+
+# Reset the random seed
+Random.seed!(1);
+
+for i ∈ eachindex(kappa)
+    kA = kappa[i];
+    A = randsvd(Float64, n, n, -1*kA, 3); 
+    
+    A1 = copy(A); 
+    time1 = time(); 
+    jacobi_eigen!(A1); 
+    tj[i] = time() - time1; 
+
+    A2 = copy(A); 
+    time1 = time(); 
+    _,_,_,recordTime2 = mp2_jacobi_eigen!(A2, Float32); 
+    tm2[i] = time() - time1; 
+    tm2Decompose[i,:] = recordTime2
+
+    A3 = copy(A); 
+    time1 = time();
+    _,_,_,recordTime3 = mp3_jacobi_eigen!(A3, Float32, Float128); 
+    tm3[i] = time() - time1; 
+    tm3Decompose[i,:] = recordTime3
+
+    println("Finished $i of $(length(N)) for k(A) = $kA")
+end
+
+# Store the data into CSV
+outputData = [kappa tj tm2 tm3 tm2Decompose tm3Decompose]
+df = DataFrame(outputData, [:kappa, :tj, :tm2, :tm3, :tm2Prec, :tm2Apply, :tm2Jacobi, :tm2Else, :tm3Prec, :tm3Apply, :tm3Jacobi, :tm3Else])
+CSV.write("./example/timing_cnd.csv", df)
