@@ -1,7 +1,7 @@
 name = "JacobiEigen"
 uuid = "f8d6750e-133d-4ddb-bd4e-1effe2381a20"
 authors = ["Zhengbo Zhou", "Marcus Webb"]
-version = "1.0.0-DEV"
+version = "1.0.0"
 
 [deps]
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
