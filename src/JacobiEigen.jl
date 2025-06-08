@@ -252,7 +252,7 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
     # Store the time for everything else
     timeElse = time() - tmp
 
-    return Λ, V, Params, [timePreconditioner timeApply timeJacobi timeElse]
+    return Λ, V, Params, [timePreconditioner, timeApply, timeJacobi, timeElse]
 end
 
 
@@ -331,20 +331,19 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     # Store the time for everything else
     timeElse = time() - tmp
 
-    return Λ, V, Params, [timePreconditioner timeApply timeJacobi timeElse] 
+    return Λ, V, Params, [timePreconditioner, timeApply, timeJacobi, timeElse]
 end
-
 
 export jacobi_eigen, jacobi_eigen!, off, mp2_jacobi_eigen, mp2_jacobi_eigen!, mp3_jacobi_eigen, mp3_jacobi_eigen!
 
 
 # precompilation:
 using GenericLinearAlgebra, Quadmath
-A = randn(Float64, 4, 4)
+A = randn(Float64, 4, 4); A = A'A
 jacobi_eigen(A)
 mp2_jacobi_eigen(A, Float32)
 mp3_jacobi_eigen(A, Float32, Float128)
-A = randn(Float32, 4, 4)
+A = randn(Float32, 4, 4); A = A'A
 jacobi_eigen(A)
 mp2_jacobi_eigen(A, Float16)
 mp3_jacobi_eigen(A, Float16, Float64)
