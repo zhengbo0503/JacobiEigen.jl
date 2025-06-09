@@ -96,7 +96,7 @@ function ComputeError( Λᵣ, Λⱼ, Vⱼ, A )
     return fwderr, bwderr, orterr
 end
 
-###########################################################################################
+# ###########################################################################################
 # Fix matrix condition number and varying the matrix order 
 # N = Int64.(round.(10 .^ range(2,3,length=10)));
 N = Int64.(round.(range(100,1000,length=20)));
@@ -201,7 +201,7 @@ for i ∈ eachindex(kappa)
     tm3[i] = time() - time1; 
     tm3Decompose[i,:] = recordTime3
 
-    println("Finished $i of $(length(N)) for k(A) = $kA")
+    println("Finished $i of $(length(kappa)) for k(A) = $kA")
 end
 
 # Store the data into CSV

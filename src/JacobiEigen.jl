@@ -1,6 +1,6 @@
 module JacobiEigen
 
-using LinearAlgebra
+using LinearAlgebra 
 
 """
     jacobi_eigen(A::AbstractMatrix{<:AbstractFloat})
@@ -44,7 +44,7 @@ end
 function _jacobi_eigen!(A::AbstractMatrix{T}, V::AbstractMatrix{T}) where T <: AbstractFloat
     # Initialize parameters 
     n = size( A,1 )
-    tol = sqrt(T(n)) * eps(T)/2
+    tol = sqrt(T(n)) * Base.eps(T)/2
     fill!(V, zero(T))
     for k ∈ axes(V,1)
         V[k,k] = one(T)
@@ -159,8 +159,8 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
     # Scale the matrix to avoid overflow 
     isscale1 = 0; 
     anrm1 = maximum(abs, A);
-    eps1 = T.(eps(Tl)/2); 
-    safmin1 = T.(floatmin(Tl));
+    eps1 = T.(Base.eps(Tl)/2); 
+    safmin1 = T.(Base.floatmin(Tl));
     smlnum1 = safmin1 / eps1; 
     bignum1 = 1 / smlnum1; 
     rmin1 = sqrt( smlnum1 );
@@ -173,9 +173,9 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
         sigma1 = rmax1 / anrm1;
     end
     if isscale1 == 1
-        Aprime = sigma1 * A; 
+        Aprime = sigma1 * copy(A); 
     else
-        Aprime = A; 
+        Aprime = copy(A); 
     end
 
     # Compute the low-precision eigenvectors 
@@ -192,42 +192,11 @@ function mp2_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}) wher
     tmp = time()
 
     # Apply the preconditioner
-    tmp = copy(A); 
-    mul!(Vu, tmp, Qu)
-    mul!(tmp, Qu', Vu)
-
-    # Scale the preconditioned matrix such that it does not overflow when 
-    # demoted to low precision. 
-    isscale = 0; 
-    anrm = maximum(abs, tmp); 
-    eps = Th.(eps(T)/2);
-    safmin = Th.(floatmin(T));
-    smlnum = safmin / eps; 
-    bignum = 1 / smlnum; 
-    rmin = sqrt( smlnum );
-    rmax = sqrt( bignum );
-    if ( anrm > 0 ) && ( anrm < rmin )
-        isscale = 1;
-        sigma = rmin / anrm;
-    elseif ( anrm > rmax )
-        isscale = 1;
-        sigma = rmax / anrm;
-    end 
-    if isscale == 1 
-        A = sigma * tmp; 
-    end
-
-    # Check the number of zeros to detect underflow 
-    nz = count(x->x==0, A);
-
+    mul!(Vu, A, Qu)
+    mul!(A, Qu', Vu)
+    
     # Post-process the preconditioned matrix to make it symmetric
-    A = T.(A); 
     hermitianpart!(A)
-
-    nz_after = count(x->x==0, A);
-    if nz_after ~= nz 
-        @warn "The preconditioner has caused underflow. The number of zeros has changed from $nz to $nz_after."
-    end
 
     # Store the time for applying the preconditioner
     timeApply = time()-tmp 
@@ -271,7 +240,7 @@ end
     - V::Matrix : V ∈ ℝⁿˣⁿ = (v₁,…,vₙ) of eigenvectors.
     - Params::Tuple : (no_rotation, no_sweep) = (number of rotations, number of sweeps).
     - [timePreconditioner timeApply timeJacobi timeElse] : Timing information for each stage.
-    
+
 """
 mp3_jacobi_eigen(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::Type{<:AbstractFloat}) where T<:AbstractFloat = mp3_jacobi_eigen!(copy(A), Tl, Th)
 
@@ -287,8 +256,30 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     # Timing for constructing the preconditioner 
     tmp = time()
 
+    # Scale the matrix to avoid overflow 
+    isscale1 = 0; 
+    anrm1 = maximum(abs, A);
+    eps1 = T.(Base.eps(Tl)/2); 
+    safmin1 = T.(Base.floatmin(Tl));
+    smlnum1 = safmin1 / eps1; 
+    bignum1 = 1 / smlnum1; 
+    rmin1 = sqrt( smlnum1 );
+    rmax1 = sqrt( bignum1 );
+    if ( anrm1 > 0 ) && ( anrm1 < rmin1 ) 
+        isscale1 = 1; 
+        sigma1 = rmin1 / anrm1;
+    elseif ( anrm1 > rmax1 )
+        isscale1 = 1; 
+        sigma1 = rmax1 / anrm1;
+    end
+    if isscale1 == 1
+        Aprime = sigma1 * copy(A); 
+    else
+        Aprime = copy(A); 
+    end
+
     # Compute the low-precision eigenvectors 
-    Vl = eigen!(Al).vectors
+    Vl = eigen!(Symmetric(Tl.(Aprime))).vectors
 
     # Orthogonalize the eigenvectors
     Vu = T.(Vl)
@@ -303,10 +294,40 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     # Apply the preconditioner at high precision
     Ah = Th.(A)
     Qh = Th.(Qu)
-    mul!(A, Qh', Ah * Qh)
+    mul!(Ah, Qh', Ah * Qh)
+
+    # Scale the preconditioned matrix such that it does not overflow when 
+    # demoted to low precision. 
+    isscale = 0; 
+    anrm = maximum(abs, Ah); 
+    eps2 = Th.(Base.eps(T)/2);
+    safmin = Th.(Base.floatmin(T));
+    smlnum = safmin / eps2; 
+    bignum = 1 / smlnum; 
+    rmin = sqrt( smlnum );
+    rmax = sqrt( bignum );
+    if ( anrm > 0 ) && ( anrm < rmin )
+        isscale = 1;
+        sigma = rmin / anrm;
+    elseif ( anrm > rmax )
+        isscale = 1;
+        sigma = rmax / anrm;
+    end 
+    if isscale == 1 
+        Ah = sigma * Ah; 
+    end
+
+    # Check the number of zeros to detect underflow 
+    nz = count(x->x==0, Ah);
 
     # Post-process the preconditioned matrix to make it symmetric
+    A = T.(Ah); 
     hermitianpart!(A)
+
+    nz_after = count(x->x==0, A);
+    if nz_after != nz 
+        @warn "The preconditioner has caused underflow. The number of zeros has changed from $nz to $nz_after."
+    end
 
     # Store the time for applying the preconditioner
     timeApply = time()-tmp 
@@ -328,6 +349,11 @@ function mp3_jacobi_eigen!(A::AbstractMatrix{T}, Tl::Type{<:AbstractFloat}, Th::
     mul!(V, Qu, Vu)
     LinearAlgebra.sorteig!(Λ, V)
 
+    # Scale the eigenvalues back to the original scale
+    if isscale == 1
+        Λ = Λ / sigma; 
+    end
+
     # Store the time for everything else
     timeElse = time() - tmp
 
@@ -343,6 +369,7 @@ A = randn(Float64, 4, 4); A = A'A
 jacobi_eigen(A)
 mp2_jacobi_eigen(A, Float32)
 mp3_jacobi_eigen(A, Float32, Float128)
+
 A = randn(Float32, 4, 4); A = A'A
 jacobi_eigen(A)
 mp2_jacobi_eigen(A, Float16)

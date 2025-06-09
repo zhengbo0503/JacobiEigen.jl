@@ -1,4 +1,4 @@
-using JacobiEigen, LinearAlgebra
+using JacobiEigen, LinearAlgebra, Quadmath, InteractiveUtils
 
 n = 200;
 
@@ -12,7 +12,7 @@ A2 = copy(A);
 Λⱼ, Vⱼ, Para = jacobi_eigen!(A2);
 
 A3 = copy(A);
-Λₕ, Vₕ, Paras = mp_jacobi_eigen(A3); 
+Λₕ, Vₕ, Paras = mp3_jacobi_eigen(A3, Float32, Float128); 
 
 println("Forward Error = $(maximum(abs.(sort(Λₕ) - sort(Λᵣ))./abs.(sort(Λᵣ))))");
 println("Backward Error = $(norm(Vₕ*diagm(Λₕ)*Vₕ'-A)/norm(A))");
@@ -27,10 +27,10 @@ A1 = copy(A);
 @time eigen!(A1);
 
 A2 = copy(A);
-@time jacobi_eigen!(A3);
+@time jacobi_eigen!(A2);
 
 A3 = copy(A);
-@time mp_jacobi_eigen(A3);
+@time mp3_jacobi_eigen(A3, Float32, Float128);
 
 
 # check the memory allocation of the internal function:
