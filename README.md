@@ -25,4 +25,4 @@ A = A'A
 
 ## References
 
-[1]  N.J. Higham, F. Tissuer, M. Webb, Z. Zhou, [Computing accurate eigenvalues using a mixed-precision Jacobi algorithm](https://arxiv.org/abs/2501.03742), submitted 2025.
+[1] N. J. Higham, F. Tisseur, M. Webb, and Z. Zhou, Computing accurate eigenvalues using a mixed-precision Jacobi algorithm, arXiv:2501.03742, June 2025. Available at https://arxiv.org/abs/2501.03742v3.
